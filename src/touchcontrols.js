@@ -87,13 +87,15 @@ export class TouchControls {
         const { x, y } = this._toLogical(touch.clientX, touch.clientY);
 
         const pauseButton = this.buttons.pause;
-        if (this._inCircle(x, y, pauseButton.x, pauseButton.y, 60)) {
+        const pdx = x - pauseButton.x;
+        const pdy = y - pauseButton.y;
+        if (pdx * pdx + pdy * pdy <= 70 * 70) {
           pauseButton.queued = true;
           pauseButton.pressed = true;
           pauseButton.touchId = touch.identifier;
           pauseButton.consumed = false;
           event.preventDefault();
-          continue;
+          return;
         }
 
         if (
