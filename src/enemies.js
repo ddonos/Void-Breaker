@@ -1041,6 +1041,7 @@ export class OverhauledBossPhantom extends Enemy {
     this.cloneTimer = 6;
     this.riftTimer = 7;
     this.rifts = [];
+    this.nextRiftId = 1;
     this.pulseTimer = 3;
     this.pulses = [];
     this.formScale = 1;
@@ -1202,8 +1203,8 @@ export class OverhauledBossPhantom extends Enemy {
     if (this.phase >= 3) {
       this.riftTimer -= dt;
       if (this.riftTimer <= 0) {
-        this.rifts.push({ id: riftId, x: 300 + Math.random() * 1320, y1: 240, y2: 840, age: 0, duration: currentDifficulty === 'cadet' ? 2 : 4, shimmer: 0, playerCooldown: 0, points: [], collapsed: false });
-        riftId += 1;
+        this.rifts.push({ id: this.nextRiftId, x: 300 + Math.random() * 1320, y1: 240, y2: 840, age: 0, duration: currentDifficulty === 'cadet' ? 2 : 4, shimmer: 0, playerCooldown: 0, points: [], collapsed: false });
+        this.nextRiftId += 1;
         this.riftTimer = this.rate(12);
       }
       this.pulseTimer -= dt;
