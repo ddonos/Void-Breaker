@@ -1333,6 +1333,42 @@ function drawPhantomShape(ctx, x, y, time, alpha, flash = 0) {
   ctx.restore();
 }
 
+function drawRealityTear(ctx, rift) {
+  const points = rift.points?.length
+    ? rift.points
+    : Array.from({ length: 12 }, (_, index) => ({
+      x: rift.x,
+      y: rift.y1 + ((rift.y2 - rift.y1) * index) / 11,
+    }));
+
+  const alpha = rift.age < 0.5 ? Math.min(1, rift.age / 0.5) : 1;
+
+  ctx.save();
+  ctx.globalAlpha = 0.18 * alpha;
+  ctx.strokeStyle = '#C878FF';
+  ctx.lineWidth = ls(18);
+  ctx.beginPath();
+  ctx.moveTo(lx(points[0].x), ly(points[0].y));
+  for (let i = 1; i < points.length; i += 1) ctx.lineTo(lx(points[i].x), ly(points[i].y));
+  ctx.stroke();
+
+  ctx.globalAlpha = 0.85 * alpha;
+  ctx.strokeStyle = '#C878FF';
+  ctx.lineWidth = ls(5);
+  ctx.beginPath();
+  ctx.moveTo(lx(points[0].x), ly(points[0].y));
+  for (let i = 1; i < points.length; i += 1) ctx.lineTo(lx(points[i].x), ly(points[i].y));
+  ctx.stroke();
+
+  ctx.strokeStyle = '#F4E6FF';
+  ctx.lineWidth = ls(2);
+  ctx.beginPath();
+  ctx.moveTo(lx(points[0].x), ly(points[0].y));
+  for (let i = 1; i < points.length; i += 1) ctx.lineTo(lx(points[i].x), ly(points[i].y));
+  ctx.stroke();
+  ctx.restore();
+}
+
 function applyDifficulty(enemy) {
   const difficulty = getCurrentDifficultyConfig();
   enemy.speed *= difficulty.enemySpeedMult;
