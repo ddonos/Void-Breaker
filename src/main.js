@@ -20,14 +20,18 @@ window.OFFSET_X = 0;
 window.OFFSET_Y = 0;
 
 function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
+  const dpr = window.devicePixelRatio || 1;
   const scaleX = window.innerWidth / LOGICAL_W;
   const scaleY = window.innerHeight / LOGICAL_H;
-  window.SCALE = Math.min(scaleX, scaleY);
-  window.OFFSET_X = (window.innerWidth - LOGICAL_W * window.SCALE) / 2;
-  window.OFFSET_Y = (window.innerHeight - LOGICAL_H * window.SCALE) / 2;
+
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = `${window.innerWidth}px`;
+  canvas.style.height = `${window.innerHeight}px`;
+
+  window.SCALE = Math.min(scaleX, scaleY) * dpr;
+  window.OFFSET_X = (canvas.width - LOGICAL_W * window.SCALE) / 2;
+  window.OFFSET_Y = (canvas.height - LOGICAL_H * window.SCALE) / 2;
 }
 
 window.addEventListener('resize', resize);
