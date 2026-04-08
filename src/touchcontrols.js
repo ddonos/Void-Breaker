@@ -31,6 +31,7 @@ export class TouchControls {
         pressed: false,
         touchId: null,
         consumed: false,
+        queued: false,
       },
       overdrive: {
         x: 1700,
@@ -92,7 +93,7 @@ export class TouchControls {
         const pauseButton = this.buttons.pause;
         if (
           !pauseButton.pressed &&
-          this._inCircle(x, y, pauseButton.x, pauseButton.y, 40)
+          this._inCircle(x, y, pauseButton.x, pauseButton.y, 50)
         ) {
           pauseButton.pressed = true;
           pauseButton.touchId = touch.identifier;
@@ -122,6 +123,17 @@ export class TouchControls {
 
     this.canvas.addEventListener('touchend', (event) => {
       for (const touch of event.changedTouches) {
+        const { x, y } = this._toLogical(touch.clientX, touch.clientY);
+        const pauseButton = this.buttons.pause;
+        if (
+          touch.identifier === pauseButton.touchId ||
+          this._inCircle(x, y, pauseButton.x, pauseButton.y, 50)
+        ) {
+          pauseButton.queued = true;
+          pauseButton.pressed = false;
+          pauseButton.touchId = null;
+          pauseButton.consumed = false;
+        }
         if (touch.identifier === this.joystick.touchId) this._resetJoystick();
         for (const button of Object.values(this.buttons)) {
           if (touch.identifier !== button.touchId) continue;
@@ -138,6 +150,7 @@ export class TouchControls {
         button.pressed = false;
         button.touchId = null;
         button.consumed = false;
+        if ('queued' in button) button.queued = false;
       }
     }, { passive: false });
   }
@@ -190,8 +203,9 @@ export class TouchControls {
 
   consumePause() {
     const button = this.buttons.pause;
-    if (button.pressed && !button.consumed) {
+    if ((button.queued || button.pressed) && !button.consumed) {
       button.consumed = true;
+      button.queued = false;
       return true;
     }
     return false;

@@ -18,6 +18,13 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 initTouchControls(canvas);
 export { touchControls };
+canvas.addEventListener('click', (event) => {
+  if (!tapHandler) return;
+  const dpr = window.devicePixelRatio || 1;
+  const x = (event.clientX * dpr - window.OFFSET_X) / window.SCALE;
+  const y = (event.clientY * dpr - window.OFFSET_Y) / window.SCALE;
+  tapHandler.pendingTap = { x, y };
+});
 window.SCALE = 1;
 window.OFFSET_X = 0;
 window.OFFSET_Y = 0;
@@ -274,7 +281,14 @@ function spawnWaveClearBonus() {
 }
 
 function updatePlaying(dt) {
-  tapHandler?.consume();
+  const tap = tapHandler?.consume();
+  if (tap && isPauseButtonTap(tap)) {
+    pauseSelection = 0;
+    pauseConfirming = false;
+    pausedFromState = GAME_STATES.PLAYING;
+    setState(GAME_STATES.PAUSED);
+    return;
+  }
   if (consumeKey('Escape')) {
     pauseSelection = 0;
     pauseConfirming = false;
@@ -518,6 +532,10 @@ function updateShop() {
 
 function updatePaused() {
   const tap = tapHandler?.consume();
+  if (tap && isPauseButtonTap(tap)) {
+    setState(pausedFromState);
+    return;
+  }
   const layout = getPauseLayoutForInput(getPauseState());
   const resumeRect = layout.resumeButton;
   const mainMenuRect = layout.mainMenuButton;
@@ -820,7 +838,7 @@ function draw() {
     case GAME_STATES.PAUSED:
       if (pausedFromState === GAME_STATES.SHOP) drawShop();
       else drawPlaying();
-      drawPauseOverlay(ctx, getPauseState());
+      drawPauseOverlay(ctx, getPauseState(), getPauseLayoutForInput(getPauseState()));
       break;
     case GAME_STATES.SHOP: drawShop(); break;
     case GAME_STATES.WAVE_COMPLETE:
@@ -1120,31 +1138,25 @@ function getPauseState() {
 }
 
 function getPauseLayoutForInput(pauseState) {
-  const maxPanelH = 980;
   const panelW = 860;
   const basePanelH = 640;
-  let visibleUpgradeCount = Math.min(4, pauseState.upgrades.length);
-  let hiddenUpgradeCount = Math.max(0, pauseState.upgrades.length - visibleUpgradeCount);
-  let upgradesRowsHeight = Math.max(80, visibleUpgradeCount * 28 + (hiddenUpgradeCount > 0 ? 28 : 0));
-  let panelH = Math.min(maxPanelH, Math.max(basePanelH, 70 + (40 + upgradesRowsHeight) + 144 + 15 + 95));
-
-  while (panelH > maxPanelH && visibleUpgradeCount > 0) {
-    visibleUpgradeCount -= 1;
-    hiddenUpgradeCount = pauseState.upgrades.length - visibleUpgradeCount;
-    upgradesRowsHeight = Math.max(80, visibleUpgradeCount * 28 + (hiddenUpgradeCount > 0 ? 28 : 0));
-    panelH = Math.min(maxPanelH, Math.max(basePanelH, 70 + (40 + upgradesRowsHeight) + 144 + 15 + 95));
-  }
-
+  const panelH = basePanelH;
   const panelX = LOGICAL_W / 2 - panelW / 2;
   const panelY = 540 - panelH / 2;
   const buttonY = panelY + panelH - 80;
 
   return {
     resumeButton: { x: panelX + 170, y: buttonY, w: 240, h: 60 },
-    mainMenuButton: { x: panelX + 450, y: buttonY, w: 240, h: 60 },
-    confirmYes: { x: panelX + 190, y: buttonY + 3, w: 160, h: 55 },
-    confirmNo: { x: panelX + 510, y: buttonY + 3, w: 160, h: 55 },
+    mainMenuButton: { x: panelX + 440, y: buttonY, w: 240, h: 60 },
+    confirmYes: { x: LOGICAL_W / 2 - 170, y: buttonY + 3, w: 160, h: 55 },
+    confirmNo: { x: LOGICAL_W / 2 + 10, y: buttonY + 3, w: 160, h: 55 },
   };
+}
+
+function isPauseButtonTap(tap) {
+  const dx = tap.x - 60;
+  const dy = tap.y - 55;
+  return dx * dx + dy * dy <= 50 * 50;
 }
 
 function canOpenShop() {

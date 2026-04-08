@@ -79,9 +79,8 @@ export function drawBossWarningOverlay(ctx, time, bossLabel = 'BOSS INCOMING', b
   if (bossSubLabel) drawText(ctx, bossSubLabel, 960, 520, 34, bossColor, 'center');
 }
 
-export function drawPauseOverlay(ctx, pauseState) {
+export function drawPauseOverlay(ctx, pauseState, layout = getPauseLayout(pauseState)) {
   flashAlpha(ctx, '#000000', 0.75);
-  const layout = getPauseLayout(pauseState);
 
   ctx.save();
   ctx.fillStyle = 'rgba(8, 8, 20, 0.92)';
@@ -169,10 +168,10 @@ export function getPauseLayout(pauseState) {
     statsRowsY,
     buttonsDividerY,
     resumeButton: { x: panelX + 170, y: buttonY, w: 240, h: 60 },
-    mainMenuButton: { x: panelX + 450, y: buttonY, w: 240, h: 60 },
+    mainMenuButton: { x: panelX + 440, y: buttonY, w: 240, h: 60 },
     confirmTextY: buttonY - 34,
-    confirmYes: { x: panelX + 190, y: buttonY + 3, w: 160, h: 55 },
-    confirmNo: { x: panelX + 510, y: buttonY + 3, w: 160, h: 55 },
+    confirmYes: { x: LOGICAL_W / 2 - 170, y: buttonY + 3, w: 160, h: 55 },
+    confirmNo: { x: LOGICAL_W / 2 + 10, y: buttonY + 3, w: 160, h: 55 },
     visibleUpgrades: pauseState.upgrades.slice(0, visibleUpgradeCount),
     hiddenUpgradeCount,
   };
