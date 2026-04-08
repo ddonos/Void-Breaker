@@ -755,7 +755,7 @@ function drawWorld() {
 
 function drawMenu() {
   drawText(ctx, TITLE, LOGICAL_W / 2, 264, 80, COLORS.PLAYER, 'center');
-  drawText(ctx, 'Wave Survival - 30 Levels - Endless Mode', LOGICAL_W / 2, 384, 28, COLORS.DIM, 'center');
+  drawText(ctx, 'Wave Survival - 30 Waves', LOGICAL_W / 2, 384, 28, COLORS.DIM, 'center');
   if (Math.floor(stateTime / 0.6) % 2 === 0) drawText(ctx, isMobile() ? 'TAP TO PLAY' : 'PRESS ENTER TO PLAY', LOGICAL_W / 2, 528, 36, COLORS.HUD, 'center');
   const best = saveData.hiScores[0];
   if (best) drawText(ctx, `BEST ${Math.round(best.score)} by ${best.initials}`, LOGICAL_W / 2, 640, 28, COLORS.CRYSTAL, 'center');
