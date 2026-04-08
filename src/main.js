@@ -89,6 +89,7 @@ let flashTimers = {};
 let pauseSelection = 0;
 let pauseConfirming = false;
 let pausedFromState = GAME_STATES.PLAYING;
+let pauseLayoutCache = null;
 let waveReward = { crystals: 0, bonus: 0, wave: 0 };
 let floatingTexts = [];
 let drifterDeathTimes = [];
@@ -536,7 +537,8 @@ function updatePaused() {
     setState(pausedFromState);
     return;
   }
-  const layout = getPauseLayoutForInput(getPauseState());
+  const layout = pauseLayoutCache || getPauseLayoutForInput(getPauseState());
+  pauseLayoutCache = layout;
   const resumeRect = layout.resumeButton;
   const mainMenuRect = layout.mainMenuButton;
   if (pauseConfirming) {
@@ -838,7 +840,8 @@ function draw() {
     case GAME_STATES.PAUSED:
       if (pausedFromState === GAME_STATES.SHOP) drawShop();
       else drawPlaying();
-      drawPauseOverlay(ctx, getPauseState(), getPauseLayoutForInput(getPauseState()));
+      pauseLayoutCache = getPauseLayoutForInput(getPauseState());
+      drawPauseOverlay(ctx, getPauseState());
       break;
     case GAME_STATES.SHOP: drawShop(); break;
     case GAME_STATES.WAVE_COMPLETE:
@@ -1148,8 +1151,8 @@ function getPauseLayoutForInput(pauseState) {
   return {
     resumeButton: { x: panelX + 170, y: buttonY, w: 240, h: 60 },
     mainMenuButton: { x: panelX + 440, y: buttonY, w: 240, h: 60 },
-    confirmYes: { x: LOGICAL_W / 2 - 170, y: buttonY + 3, w: 160, h: 55 },
-    confirmNo: { x: LOGICAL_W / 2 + 10, y: buttonY + 3, w: 160, h: 55 },
+    confirmYes: { x: LOGICAL_W / 2 - 170, y: buttonY, w: 160, h: 55 },
+    confirmNo: { x: LOGICAL_W / 2 + 10, y: buttonY, w: 160, h: 55 },
   };
 }
 

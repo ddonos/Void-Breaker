@@ -170,8 +170,8 @@ export function getPauseLayout(pauseState) {
     resumeButton: { x: panelX + 170, y: buttonY, w: 240, h: 60 },
     mainMenuButton: { x: panelX + 440, y: buttonY, w: 240, h: 60 },
     confirmTextY: buttonY - 34,
-    confirmYes: { x: LOGICAL_W / 2 - 170, y: buttonY + 3, w: 160, h: 55 },
-    confirmNo: { x: LOGICAL_W / 2 + 10, y: buttonY + 3, w: 160, h: 55 },
+    confirmYes: { x: LOGICAL_W / 2 - 170, y: buttonY, w: 160, h: 55 },
+    confirmNo: { x: LOGICAL_W / 2 + 10, y: buttonY, w: 160, h: 55 },
     visibleUpgrades: pauseState.upgrades.slice(0, visibleUpgradeCount),
     hiddenUpgradeCount,
   };

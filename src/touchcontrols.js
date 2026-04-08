@@ -124,6 +124,7 @@ export class TouchControls {
     this.canvas.addEventListener('touchend', (event) => {
       for (const touch of event.changedTouches) {
         const { x, y } = this._toLogical(touch.clientX, touch.clientY);
+        if (tapHandler) tapHandler.pendingTap = { x, y };
         const pauseButton = this.buttons.pause;
         if (
           touch.identifier === pauseButton.touchId ||
