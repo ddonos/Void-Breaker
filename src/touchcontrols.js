@@ -55,11 +55,17 @@ export class TouchControls {
   }
 
   _toLogical(clientX, clientY) {
-    const dpr = window.devicePixelRatio || 1;
-    return {
-      x: (clientX * dpr - window.OFFSET_X) / window.SCALE,
-      y: (clientY * dpr - window.OFFSET_Y) / window.SCALE,
-    };
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasX = clientX - rect.left;
+    const canvasY = clientY - rect.top;
+    const scaleX = rect.width > 0 ? 1920 / rect.width : 1;
+    const scaleY = rect.height > 0 ? 1080 / rect.height : 1;
+    const x = canvasX * scaleX;
+    const y = canvasY * scaleY;
+    if (x < 200 && y < 200) {
+      console.log('Touch near pause btn area:', Math.round(x), Math.round(y), '| Pause btn at: 60, 55 | radius: 60');
+    }
+    return { x, y };
   }
 
   _inCircle(px, py, cx, cy, r) {
@@ -80,6 +86,16 @@ export class TouchControls {
       for (const touch of event.changedTouches) {
         const { x, y } = this._toLogical(touch.clientX, touch.clientY);
 
+        const pauseButton = this.buttons.pause;
+        if (this._inCircle(x, y, pauseButton.x, pauseButton.y, 60)) {
+          pauseButton.queued = true;
+          pauseButton.pressed = true;
+          pauseButton.touchId = touch.identifier;
+          pauseButton.consumed = false;
+          event.preventDefault();
+          continue;
+        }
+
         if (
           !this.joystick.active &&
           this._inCircle(x, y, this.joystick.baseX, this.joystick.baseY, this.joystick.radius * 1.5)
@@ -87,17 +103,6 @@ export class TouchControls {
           this.joystick.active = true;
           this.joystick.touchId = touch.identifier;
           this._updateStick(x, y);
-          continue;
-        }
-
-        const pauseButton = this.buttons.pause;
-        if (
-          !pauseButton.pressed &&
-          this._inCircle(x, y, pauseButton.x, pauseButton.y, 50)
-        ) {
-          pauseButton.pressed = true;
-          pauseButton.touchId = touch.identifier;
-          pauseButton.consumed = false;
           continue;
         }
 
@@ -128,12 +133,11 @@ export class TouchControls {
         const pauseButton = this.buttons.pause;
         if (
           touch.identifier === pauseButton.touchId ||
-          this._inCircle(x, y, pauseButton.x, pauseButton.y, 50)
+          this._inCircle(x, y, pauseButton.x, pauseButton.y, 60)
         ) {
-          pauseButton.queued = true;
           pauseButton.pressed = false;
           pauseButton.touchId = null;
-          pauseButton.consumed = false;
+          if (!pauseButton.consumed) pauseButton.queued = true;
         }
         if (touch.identifier === this.joystick.touchId) this._resetJoystick();
         for (const button of Object.values(this.buttons)) {
