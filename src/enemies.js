@@ -1117,7 +1117,6 @@ export class OverhauledBossPhantom extends Enemy {
       this.formScale = 1.4 + (1 - this.collapseTimer / this.collapseTotal) * 1.6;
       if (this.collapseTimer <= 0 && !this.dead) {
         if (currentDifficulty === 'voidlord' && player.hp < 250) player.hp = 0;
-        else player.takeDamage(200, { ignoreInvincible: true, grantInvincible: false });
         context.enemies.filter((enemy) => !enemy.dead && enemy.id !== this.id).forEach((enemy) => { enemy.hp = 0; enemy.dead = true; context.handleEnemyDeath(enemy); });
         this.dead = true;
         context.handleEnemyDeath(this);
@@ -1282,6 +1281,38 @@ export class OverhauledBossPhantom extends Enemy {
     }
     this.rifts.forEach((rift) => drawRealityTear(ctx, rift));
     this.pulses.forEach((pulse) => pulse.draw(ctx));
+    if (this.beamWarn > 0 || this.beamActive > 0) {
+      const beamLength = 2200;
+      const endX = this.x + Math.cos(this.beamAngle) * beamLength;
+      const endY = this.y + Math.sin(this.beamAngle) * beamLength;
+      ctx.save();
+      ctx.lineCap = 'round';
+      if (this.beamWarn > 0) {
+        ctx.globalAlpha = 0.45 + Math.sin(this.time * 14) * 0.2;
+        ctx.strokeStyle = '#FF6480';
+        ctx.lineWidth = ls(3);
+        ctx.beginPath();
+        ctx.moveTo(lx(this.x), ly(this.y));
+        ctx.lineTo(lx(endX), ly(endY));
+        ctx.stroke();
+      } else {
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = '#C878FF';
+        ctx.lineWidth = ls(8);
+        ctx.beginPath();
+        ctx.moveTo(lx(this.x), ly(this.y));
+        ctx.lineTo(lx(endX), ly(endY));
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#F8E8FF';
+        ctx.lineWidth = ls(3);
+        ctx.beginPath();
+        ctx.moveTo(lx(this.x), ly(this.y));
+        ctx.lineTo(lx(endX), ly(endY));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     drawText(ctx, phaseRoman(this.phase), this.x, this.y - 138, 24, this.phase === 1 ? '#50D8FF' : this.phase === 2 ? '#C878FF' : this.phase === 3 ? '#FF6480' : '#B00040', 'center');
   }
 
