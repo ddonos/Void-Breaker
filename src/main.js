@@ -25,6 +25,25 @@ canvas.addEventListener('click', (event) => {
   const y = (event.clientY * dpr - window.OFFSET_Y) / window.SCALE;
   tapHandler.pendingTap = { x, y };
 });
+document.addEventListener('touchstart', function (e) {
+  const t = e.touches[0];
+  if (!t) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = rect.width / LOGICAL_W;
+  const scaleY = rect.height / LOGICAL_H;
+
+  const x = (t.clientX - rect.left) / scaleX;
+  const y = (t.clientY - rect.top) / scaleY;
+
+  const dx = x - 60;
+  const dy = y - 55;
+
+  if (dx * dx + dy * dy < 80 * 80) {
+    if (currentState === 'PLAYING') setState('PAUSED');
+    else if (currentState === 'PAUSED') setState('PLAYING');
+  }
+}, { passive: true });
 window.SCALE = 1;
 window.OFFSET_X = 0;
 window.OFFSET_Y = 0;
