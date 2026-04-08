@@ -10,11 +10,14 @@ import { clearCanvas, drawBar, drawCircle, drawText, flashAlpha, ls, lx, ly } fr
 import { loadSave, qualifiesForBoard, submitScore, writeSave } from './save.js';
 import { ShopScreen, UPGRADES } from './shop.js';
 import { BOSS_WAVES, COLORS, currentDifficulty, DIFFICULTIES, GAME_STATES, LOGICAL_H, LOGICAL_W, POWERUP_CAP, setCurrentDifficulty, TITLE, SCORE_VALUES } from './settings.js';
+import { initTouchControls, touchControls } from './touchcontrols.js';
 import { explodeAt } from './utils.js';
 import { WaveManager } from './waves.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+initTouchControls(canvas);
+export { touchControls };
 window.SCALE = 1;
 window.OFFSET_X = 0;
 window.OFFSET_Y = 0;
@@ -35,6 +38,7 @@ function resize() {
 }
 
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
 resize();
 
 export let currentState = GAME_STATES.MENU;
@@ -565,6 +569,7 @@ function updateLeaderboard() {
 }
 
 function update(dt) {
+  if (isPortraitMode()) return;
   if (!assetsReady) return;
   shakeTimer = Math.max(0, shakeTimer - dt);
   if (shakeTimer <= 0) shakeIntensity = 0;
@@ -649,6 +654,7 @@ function drawPlaying() {
     plasmaStatus: getPlasmaHudState(),
     difficultyBadge: getDifficultyBadge(),
   });
+  touchControls?.draw(ctx, worldTime, player);
   const boss = enemies.find((enemy) => enemy.isBoss);
   if (boss) {
     drawBar(ctx, 480, 104, 960, 20, boss.hp, boss.maxHp, COLORS.BOSS, '#1a0b16', '#65331a');
@@ -676,6 +682,10 @@ function drawGameOver() {
 
 function draw() {
   clearCanvas(ctx, COLORS.BG);
+  if (isPortraitMode()) {
+    drawPortraitScreen();
+    return;
+  }
   if (!assetsReady) {
     drawLoadingScreen();
     return;
@@ -1010,4 +1020,64 @@ function getBossWarningInfo(wave) {
     case 'BOSS_PHANTOM': return { label: 'PHANTOM WRAITH EMERGING', color: '#50C8FF' };
     default: return { label: 'HOSTILE MASS DETECTED', color: COLORS.BOSS };
   }
+}
+
+function isPortraitMode() {
+  return touchControls?.active && window.innerHeight > window.innerWidth;
+}
+
+function drawPortraitScreen() {
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const dpr = window.devicePixelRatio || 1;
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `${Math.max(24, Math.round(30 * dpr))}px monospace`;
+  ctx.fillText('Rotate your device to play', centerX, centerY - 90 * dpr);
+
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = Math.max(2, 3 * dpr);
+  ctx.lineCap = 'round';
+
+  const phoneW = 90 * dpr;
+  const phoneH = 150 * dpr;
+  const iconX = centerX;
+  const iconY = centerY + 10 * dpr;
+
+  ctx.save();
+  ctx.translate(iconX, iconY);
+  ctx.rotate(-Math.PI / 7);
+  roundRectPath(ctx, -phoneW / 2, -phoneH / 2, phoneW, phoneH, 14 * dpr);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-20 * dpr, phoneH / 2 + 26 * dpr);
+  ctx.arc(0, phoneH / 2 + 26 * dpr, 30 * dpr, Math.PI, Math.PI * 1.8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(10 * dpr, phoneH / 2 + 2 * dpr);
+  ctx.lineTo(28 * dpr, phoneH / 2 + 14 * dpr);
+  ctx.lineTo(8 * dpr, phoneH / 2 + 24 * dpr);
+  ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+}
+
+function roundRectPath(context, x, y, w, h, r) {
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.lineTo(x + w - r, y);
+  context.quadraticCurveTo(x + w, y, x + w, y + r);
+  context.lineTo(x + w, y + h - r);
+  context.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  context.lineTo(x + r, y + h);
+  context.quadraticCurveTo(x, y + h, x, y + h - r);
+  context.lineTo(x, y + r);
+  context.quadraticCurveTo(x, y, x + r, y);
+  context.closePath();
 }

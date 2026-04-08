@@ -1,0 +1,271 @@
+import { ls, lx, ly } from './renderer.js';
+
+export const isMobile = () =>
+  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  navigator.maxTouchPoints > 1;
+
+export class TouchControls {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.active = isMobile();
+
+    this.joystick = {
+      active: false,
+      touchId: null,
+      baseX: 220,
+      baseY: 880,
+      stickX: 220,
+      stickY: 880,
+      radius: 100,
+      stickRadius: 45,
+      dx: 0,
+      dy: 0,
+    };
+
+    this.buttons = {
+      overdrive: {
+        x: 1700,
+        y: 780,
+        r: 65,
+        pressed: false,
+        touchId: null,
+        consumed: false,
+      },
+      plasma: {
+        x: 1700,
+        y: 930,
+        r: 65,
+        pressed: false,
+        touchId: null,
+        consumed: false,
+      },
+    };
+
+    if (this.active) this._bindEvents();
+  }
+
+  _toLogical(clientX, clientY) {
+    const dpr = window.devicePixelRatio || 1;
+    return {
+      x: (clientX * dpr - window.OFFSET_X) / window.SCALE,
+      y: (clientY * dpr - window.OFFSET_Y) / window.SCALE,
+    };
+  }
+
+  _inCircle(px, py, cx, cy, r) {
+    const dx = px - cx;
+    const dy = py - cy;
+    return dx * dx + dy * dy <= r * r;
+  }
+
+  _bindEvents() {
+    document.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
+    document.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
+
+    this.canvas.addEventListener('touchstart', (event) => {
+      for (const touch of event.changedTouches) {
+        const { x, y } = this._toLogical(touch.clientX, touch.clientY);
+
+        if (
+          !this.joystick.active &&
+          this._inCircle(x, y, this.joystick.baseX, this.joystick.baseY, this.joystick.radius * 1.5)
+        ) {
+          this.joystick.active = true;
+          this.joystick.touchId = touch.identifier;
+          this._updateStick(x, y);
+          continue;
+        }
+
+        for (const button of Object.values(this.buttons)) {
+          if (button.pressed) continue;
+          if (!this._inCircle(x, y, button.x, button.y, button.r)) continue;
+          button.pressed = true;
+          button.touchId = touch.identifier;
+          button.consumed = false;
+          break;
+        }
+      }
+    }, { passive: false });
+
+    this.canvas.addEventListener('touchmove', (event) => {
+      for (const touch of event.changedTouches) {
+        if (touch.identifier !== this.joystick.touchId) continue;
+        const { x, y } = this._toLogical(touch.clientX, touch.clientY);
+        this._updateStick(x, y);
+      }
+    }, { passive: false });
+
+    this.canvas.addEventListener('touchend', (event) => {
+      for (const touch of event.changedTouches) {
+        if (touch.identifier === this.joystick.touchId) this._resetJoystick();
+        for (const button of Object.values(this.buttons)) {
+          if (touch.identifier !== button.touchId) continue;
+          button.pressed = false;
+          button.touchId = null;
+          button.consumed = false;
+        }
+      }
+    }, { passive: false });
+
+    this.canvas.addEventListener('touchcancel', () => {
+      this._resetJoystick();
+      for (const button of Object.values(this.buttons)) {
+        button.pressed = false;
+        button.touchId = null;
+        button.consumed = false;
+      }
+    }, { passive: false });
+  }
+
+  _resetJoystick() {
+    this.joystick.active = false;
+    this.joystick.touchId = null;
+    this.joystick.stickX = this.joystick.baseX;
+    this.joystick.stickY = this.joystick.baseY;
+    this.joystick.dx = 0;
+    this.joystick.dy = 0;
+  }
+
+  _updateStick(px, py) {
+    const dx = px - this.joystick.baseX;
+    const dy = py - this.joystick.baseY;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= 8) {
+      this.joystick.stickX = this.joystick.baseX;
+      this.joystick.stickY = this.joystick.baseY;
+      this.joystick.dx = 0;
+      this.joystick.dy = 0;
+      return;
+    }
+
+    const angle = Math.atan2(dy, dx);
+    const clamped = Math.min(dist, this.joystick.radius);
+    this.joystick.stickX = this.joystick.baseX + Math.cos(angle) * clamped;
+    this.joystick.stickY = this.joystick.baseY + Math.sin(angle) * clamped;
+    this.joystick.dx = Math.cos(angle) * (clamped / this.joystick.radius);
+    this.joystick.dy = Math.sin(angle) * (clamped / this.joystick.radius);
+  }
+
+  getMovement() {
+    return { dx: this.joystick.dx, dy: this.joystick.dy };
+  }
+
+  isFireActive() {
+    return this.joystick.active;
+  }
+
+  consumeOverdrive() {
+    const button = this.buttons.overdrive;
+    if (button.pressed && !button.consumed) {
+      button.consumed = true;
+      return true;
+    }
+    return false;
+  }
+
+  consumePlasma() {
+    const button = this.buttons.plasma;
+    if (button.pressed && !button.consumed) {
+      button.consumed = true;
+      return true;
+    }
+    return false;
+  }
+
+  draw(ctx, time, player) {
+    if (!this.active) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(lx(this.joystick.baseX), ly(this.joystick.baseY), ls(this.joystick.radius), 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = ls(2);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(lx(this.joystick.stickX), ly(this.joystick.stickY), ls(this.joystick.stickRadius), 0, Math.PI * 2);
+    ctx.fillStyle = this.joystick.active ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.18)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.60)';
+    ctx.lineWidth = ls(2);
+    ctx.stroke();
+    ctx.restore();
+
+    this._drawButton(ctx, time, this.buttons.overdrive, {
+      readyFill: 'rgba(160,100,255,0.25)',
+      activeFill: 'rgba(160,100,255,0.50)',
+      pressedFill: 'rgba(160,100,255,0.65)',
+      stroke: 'rgba(160,100,255,0.70)',
+      purchased: !!player?.hasOverdrive,
+      cooldown: player?.overdriveCooldown ?? 0,
+      maxCooldown: player?.overdriveCooldownMax ?? 0,
+      label: 'OD',
+      active: !!player?.overdrive,
+      activeLabel: 'ACTIVE',
+    });
+
+    this._drawButton(ctx, time, this.buttons.plasma, {
+      readyFill: 'rgba(255,140,40,0.25)',
+      activeFill: 'rgba(255,140,40,0.25)',
+      pressedFill: 'rgba(255,140,40,0.65)',
+      stroke: 'rgba(255,140,40,0.70)',
+      purchased: (player?.plasmaCannonTier || 0) > 0,
+      cooldown: player?.plasmaCooldown ?? 0,
+      maxCooldown: player?.plasmaCooldownMax ?? 2.5,
+      label: 'PLS',
+      active: false,
+      activeLabel: '',
+    });
+  }
+
+  _drawButton(ctx, time, button, config) {
+    if (!config.purchased) return;
+
+    const cx = lx(button.x);
+    const cy = ly(button.y);
+    const radius = ls(button.r);
+    const onCooldown = config.cooldown > 0;
+    const pulse = 0.55 + Math.sin(time * 6) * 0.1;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    if (onCooldown) ctx.fillStyle = 'rgba(80,80,80,0.20)';
+    else if (config.active) ctx.fillStyle = `rgba(160,100,255,${pulse.toFixed(3)})`;
+    else if (button.pressed) ctx.fillStyle = config.pressedFill;
+    else ctx.fillStyle = config.readyFill;
+    ctx.fill();
+    ctx.strokeStyle = onCooldown ? 'rgba(120,120,120,0.40)' : config.stroke;
+    ctx.lineWidth = ls(2.5);
+    ctx.stroke();
+
+    if (onCooldown && config.maxCooldown > 0) {
+      const progress = 1 - config.cooldown / config.maxCooldown;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - ls(6), -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+      ctx.strokeStyle = config.stroke;
+      ctx.lineWidth = ls(4);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = onCooldown ? 'rgba(180,180,180,0.8)' : '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${ls(config.active ? 18 + Math.sin(time * 8) * 1.5 : onCooldown ? 20 : 26)}px monospace`;
+    ctx.fillText(
+      config.active ? config.activeLabel : onCooldown ? `${config.cooldown.toFixed(1)}s` : config.label,
+      cx,
+      cy,
+    );
+    ctx.restore();
+  }
+}
+
+export let touchControls = null;
+
+export function initTouchControls(canvas) {
+  touchControls = new TouchControls(canvas);
+  return touchControls;
+}

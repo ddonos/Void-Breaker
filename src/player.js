@@ -14,6 +14,7 @@ import {
 import { assets } from './assets.js';
 import { clamp, drawImageCentered, lx, ly, strokeArc, withTransform } from './renderer.js';
 import { Bullet, PlasmaCannonBolt } from './projectiles.js';
+import { touchControls } from './touchcontrols.js';
 
 export class Player {
   constructor() {
@@ -60,8 +61,15 @@ export class Player {
   }
 
   update(dt, bullets, audioManager, plasmaBolts) {
-    const moveX = (isAnyOf('KeyD', 'ArrowRight') ? 1 : 0) - (isAnyOf('KeyA', 'ArrowLeft') ? 1 : 0);
-    const moveY = (isAnyOf('KeyS', 'ArrowDown') ? 1 : 0) - (isAnyOf('KeyW', 'ArrowUp') ? 1 : 0);
+    let moveX = (isAnyOf('KeyD', 'ArrowRight') ? 1 : 0) - (isAnyOf('KeyA', 'ArrowLeft') ? 1 : 0);
+    let moveY = (isAnyOf('KeyS', 'ArrowDown') ? 1 : 0) - (isAnyOf('KeyW', 'ArrowUp') ? 1 : 0);
+
+    if (touchControls?.active && touchControls.joystick.active) {
+      const touchMove = touchControls.getMovement();
+      moveX = touchMove.dx;
+      moveY = touchMove.dy;
+    }
+
     const rawLen = Math.hypot(moveX, moveY);
     const moveLen = rawLen || 1;
     this.isMoving = rawLen > 0;
@@ -100,17 +108,20 @@ export class Player {
       this.overdriveCooldown = Math.max(0, this.overdriveCooldown - dt);
     }
 
-    if (this.hasOverdrive && isDown('ShiftLeft') && !this.overdrive && this.overdriveCooldown <= 0) {
+    const wantsOverdrive = isDown('ShiftLeft') || (touchControls?.active && touchControls.consumeOverdrive());
+    if (this.hasOverdrive && wantsOverdrive && !this.overdrive && this.overdriveCooldown <= 0) {
       this.overdrive = true;
       this.overdriveTimer = this.overdriveDuration;
     }
 
-    if (isDown('Space') && this.fireCooldown <= 0) {
+    const wantsToFire = isDown('Space') || (touchControls?.active && touchControls.isFireActive());
+    if (wantsToFire && this.fireCooldown <= 0) {
       this.fire(bullets);
       audioManager.shoot();
     }
 
-    if (this.plasmaCannonTier > 0 && isDown('KeyX') && this.plasmaCooldown <= 0) {
+    const wantsPlasma = isDown('KeyX') || (touchControls?.active && touchControls.consumePlasma());
+    if (this.plasmaCannonTier > 0 && wantsPlasma && this.plasmaCooldown <= 0) {
       const plasmaDamage = 120 + (this.plasmaCannonTier - 1) * 40;
       const plasmaAngles = this.plasmaCannonTier === 1
         ? [0]
