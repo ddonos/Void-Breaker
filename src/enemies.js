@@ -1033,11 +1033,6 @@ export class OverhauledBossPhantom extends Enemy {
     this.spectralTimer = 1.2;
     this.spectralBurstRemaining = 0;
     this.spectralBurstDelay = 0;
-    this.beamTimer = 5;
-    this.beamWarn = 0;
-    this.beamActive = 0;
-    this.beamAngle = 0;
-    this.beamTick = 0.1;
     this.cloneTimer = 6;
     this.riftTimer = 7;
     this.rifts = [];
@@ -1164,33 +1159,6 @@ export class OverhauledBossPhantom extends Enemy {
       }
     }
     if (this.phase >= 2) {
-      this.beamTimer -= dt;
-      if (this.beamTimer <= 0 && this.beamWarn <= 0 && this.beamActive <= 0) {
-        this.beamWarn = 0.8;
-        this.beamAngle = angleTo(this.x, this.y, player.x, player.y);
-        this.beamTick = 0.1;
-        this.beamTimer = this.finalEnrage ? this.rate(2.5) : this.phase === 2 ? this.rate(7) : this.rate(5);
-      }
-    }
-    if (this.beamWarn > 0) {
-      this.beamWarn = Math.max(0, this.beamWarn - dt);
-      this.beamAngle = angleTo(this.x, this.y, player.x, player.y);
-      if (this.beamWarn <= 0) {
-        this.beamActive = this.phase >= 3 ? 2.5 : 2;
-        this.beamTick = 0.1;
-      }
-    } else if (this.beamActive > 0) {
-      this.beamActive = Math.max(0, this.beamActive - dt);
-      const targetAngle = angleTo(this.x, this.y, player.x, player.y);
-      const delta = normalizeAngle(targetAngle - this.beamAngle);
-      this.beamAngle += Math.max(-2.8 * dt, Math.min(2.8 * dt, delta));
-      this.beamTick -= dt;
-      if (this.beamTick <= 0) {
-        this.beamTick = 0.1;
-        if (distanceToBeam(player.x, player.y, this.x, this.y, this.beamAngle, 2200) < 26) player.takeDamage(this.damageMult(35), { ignoreInvincible: true, grantInvincible: false });
-      }
-    }
-    if (this.phase >= 2) {
       this.cloneTimer -= dt;
       if (this.cloneTimer <= 0) {
         const existing = context.enemies.filter((enemy) => enemy.type === 'PHANTOM_CLONE' && !enemy.dead).length;
@@ -1225,7 +1193,7 @@ export class OverhauledBossPhantom extends Enemy {
       }
       return false;
     });
-    return this.beamWarn > 0 || this.beamActive > 0 || this.flashTimer > 0 ? 'fired' : null;
+    return this.flashTimer > 0 ? 'fired' : null;
   }
 
   affectPlayerProjectiles(bullets, plasmaBolts, player) {
@@ -1282,38 +1250,6 @@ export class OverhauledBossPhantom extends Enemy {
     }
     this.rifts.forEach((rift) => drawRealityTear(ctx, rift));
     this.pulses.forEach((pulse) => pulse.draw(ctx));
-    if (this.beamWarn > 0 || this.beamActive > 0) {
-      const beamLength = 2200;
-      const endX = this.x + Math.cos(this.beamAngle) * beamLength;
-      const endY = this.y + Math.sin(this.beamAngle) * beamLength;
-      ctx.save();
-      ctx.lineCap = 'round';
-      if (this.beamWarn > 0) {
-        ctx.globalAlpha = 0.45 + Math.sin(this.time * 14) * 0.2;
-        ctx.strokeStyle = '#FF6480';
-        ctx.lineWidth = ls(3);
-        ctx.beginPath();
-        ctx.moveTo(lx(this.x), ly(this.y));
-        ctx.lineTo(lx(endX), ly(endY));
-        ctx.stroke();
-      } else {
-        ctx.globalAlpha = 0.9;
-        ctx.strokeStyle = '#C878FF';
-        ctx.lineWidth = ls(8);
-        ctx.beginPath();
-        ctx.moveTo(lx(this.x), ly(this.y));
-        ctx.lineTo(lx(endX), ly(endY));
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = '#F8E8FF';
-        ctx.lineWidth = ls(3);
-        ctx.beginPath();
-        ctx.moveTo(lx(this.x), ly(this.y));
-        ctx.lineTo(lx(endX), ly(endY));
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
     drawText(ctx, phaseRoman(this.phase), this.x, this.y - 138, 24, this.phase === 1 ? '#50D8FF' : this.phase === 2 ? '#C878FF' : this.phase === 3 ? '#FF6480' : '#B00040', 'center');
   }
 

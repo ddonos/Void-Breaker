@@ -196,7 +196,9 @@ export class ShopScreen {
       const pips = Array.from({ length: upgrade.maxTier }, (_, idx) => (idx < tier ? '\u25CF' : '\u25CB')).join('');
       drawText(ctx, `${pips} ${upgrade.name}`, 88, y, 28, selected ? COLORS.HIGHLIGHT : COLORS.HUD);
       drawText(ctx, upgrade.description, 88, y + 34, 22, '#9088C7');
-      drawText(ctx, maxed ? 'MAXED' : `${cost}`, 1832, y + 16, 32, maxed ? COLORS.DIM : (affordable ? COLORS.CRYSTAL : COLORS.DIM), 'right');
+      if (!(isMobile() && selected)) {
+        drawText(ctx, maxed ? 'MAXED' : `${cost}`, 1832, y + 16, 32, maxed ? COLORS.DIM : (affordable ? COLORS.CRYSTAL : COLORS.DIM), 'right');
+      }
       if (isMobile() && selected) {
         ctx.save();
         ctx.globalAlpha = this.mobileFlashTimer > 0 ? 0.22 : 1;
