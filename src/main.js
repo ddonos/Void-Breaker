@@ -518,20 +518,21 @@ function updateShop() {
 
 function updatePaused() {
   const tap = tapHandler?.consume();
-  const resumeRect = { x: LOGICAL_W / 2 - 150, y: 780, w: 300, h: 70 };
-  const mainMenuRect = { x: LOGICAL_W / 2 - 150, y: 866, w: 300, h: 70 };
+  const layout = getPauseLayoutForInput(getPauseState());
+  const resumeRect = layout.resumeButton;
+  const mainMenuRect = layout.mainMenuButton;
   if (pauseConfirming) {
     if (consumeKey('Escape')) {
       pauseConfirming = false;
       return;
     }
-    if (TapHandler.hitRect(tap, 820, 978, 130, 60)) {
+    if (TapHandler.hitRect(tap, layout.confirmYes.x, layout.confirmYes.y, layout.confirmYes.w, layout.confirmYes.h)) {
       player = null;
       currentWave = 0;
       setState(GAME_STATES.MENU);
       return;
     }
-    if (TapHandler.hitRect(tap, 970, 978, 130, 60)) {
+    if (TapHandler.hitRect(tap, layout.confirmNo.x, layout.confirmNo.y, layout.confirmNo.w, layout.confirmNo.h)) {
       pauseConfirming = false;
       return;
     }
@@ -1115,6 +1116,34 @@ function getPauseState() {
     menu: ['RESUME', 'MAIN MENU'],
     selection: pauseSelection,
     confirming: pauseConfirming,
+  };
+}
+
+function getPauseLayoutForInput(pauseState) {
+  const maxPanelH = 980;
+  const panelW = 860;
+  const basePanelH = 640;
+  let visibleUpgradeCount = Math.min(4, pauseState.upgrades.length);
+  let hiddenUpgradeCount = Math.max(0, pauseState.upgrades.length - visibleUpgradeCount);
+  let upgradesRowsHeight = Math.max(80, visibleUpgradeCount * 28 + (hiddenUpgradeCount > 0 ? 28 : 0));
+  let panelH = Math.min(maxPanelH, Math.max(basePanelH, 70 + (40 + upgradesRowsHeight) + 144 + 15 + 95));
+
+  while (panelH > maxPanelH && visibleUpgradeCount > 0) {
+    visibleUpgradeCount -= 1;
+    hiddenUpgradeCount = pauseState.upgrades.length - visibleUpgradeCount;
+    upgradesRowsHeight = Math.max(80, visibleUpgradeCount * 28 + (hiddenUpgradeCount > 0 ? 28 : 0));
+    panelH = Math.min(maxPanelH, Math.max(basePanelH, 70 + (40 + upgradesRowsHeight) + 144 + 15 + 95));
+  }
+
+  const panelX = LOGICAL_W / 2 - panelW / 2;
+  const panelY = 540 - panelH / 2;
+  const buttonY = panelY + panelH - 80;
+
+  return {
+    resumeButton: { x: panelX + 170, y: buttonY, w: 240, h: 60 },
+    mainMenuButton: { x: panelX + 450, y: buttonY, w: 240, h: 60 },
+    confirmYes: { x: panelX + 190, y: buttonY + 3, w: 160, h: 55 },
+    confirmNo: { x: panelX + 510, y: buttonY + 3, w: 160, h: 55 },
   };
 }
 

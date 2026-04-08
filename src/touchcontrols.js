@@ -24,7 +24,7 @@ export class TouchControls {
 
     this.buttons = {
       pause: {
-        x: 1860,
+        x: 60,
         y: 55,
         w: 60,
         h: 60,
@@ -92,7 +92,7 @@ export class TouchControls {
         const pauseButton = this.buttons.pause;
         if (
           !pauseButton.pressed &&
-          this._inRect(x, y, pauseButton.x - pauseButton.w / 2, pauseButton.y - pauseButton.h / 2, pauseButton.w, pauseButton.h)
+          this._inCircle(x, y, pauseButton.x, pauseButton.y, 40)
         ) {
           pauseButton.pressed = true;
           pauseButton.touchId = touch.identifier;

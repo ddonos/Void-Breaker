@@ -81,109 +81,101 @@ export function drawBossWarningOverlay(ctx, time, bossLabel = 'BOSS INCOMING', b
 
 export function drawPauseOverlay(ctx, pauseState) {
   flashAlpha(ctx, '#000000', 0.75);
-  const panelX = 460;
-  const panelY = 36;
-  const panelW = 1000;
-  const panelH = 1008;
-  const panelBottom = panelY + panelH;
-  const titleY = 96;
-  const titleDividerY = 170;
-  const leftColumnX = 580;
-  const rightColumnX = 1040;
-  const sectionGap = 18;
-  const menuRowHeight = 48;
-  const menuHeight = pauseState.menu.length * menuRowHeight;
-  const confirmHeight = pauseState.confirming ? 84 : 0;
-  const footerHintY = panelBottom - 36;
-  const footerGap = 34;
-  const menuBottomY = footerHintY - footerGap;
-  const menuStartY = menuBottomY - confirmHeight - menuHeight;
-  const statsRowHeight = 34;
-  const statsHeaderY = menuStartY - 148;
-  const statsStartY = statsHeaderY + 42;
-  const statsBottomY = statsStartY + pauseState.stats.length * statsRowHeight + 26;
-  const upgradesHeaderY = titleDividerY + 52;
-  const upgradesStartY = upgradesHeaderY + 42;
-  const upgradesBottomY = statsHeaderY - sectionGap;
-  const availableUpgradeHeight = Math.max(28, upgradesBottomY - upgradesStartY - 6);
-  const upgradeRows = Math.max(1, pauseState.upgrades.length);
-  const upgradeRowHeight = Math.max(24, Math.min(34, Math.floor(availableUpgradeHeight / upgradeRows)));
-  const upgradeFontSize = upgradeRowHeight <= 26 ? 20 : 24;
-  const statsFontSize = 24;
+  const layout = getPauseLayout(pauseState);
 
   ctx.save();
   ctx.fillStyle = 'rgba(8, 8, 20, 0.92)';
-  ctx.fillRect(lx(panelX), ly(panelY), ls(panelW), ls(panelH));
+  roundedRectPath(ctx, lx(layout.panelX), ly(layout.panelY), ls(layout.panelW), ls(layout.panelH), ls(12));
+  ctx.fill();
   ctx.strokeStyle = COLORS.HUD;
-  ctx.lineWidth = ls(3);
-  ctx.strokeRect(lx(panelX), ly(panelY), ls(panelW), ls(panelH));
+  ctx.lineWidth = ls(1.5);
+  ctx.stroke();
   ctx.restore();
 
-  drawText(ctx, 'PAUSED', 960, titleY, 64, COLORS.HUD, 'center');
-  drawDivider(ctx, 560, titleDividerY, 800);
+  drawText(ctx, 'PAUSED', LOGICAL_W / 2, layout.panelY + 18, 28, COLORS.HUD, 'center');
+  drawDivider(ctx, layout.panelX + 30, layout.panelY + 70, layout.panelW - 60);
 
-  drawText(ctx, 'ACTIVE UPGRADES', leftColumnX, upgradesHeaderY, 30, COLORS.HUD);
-  if (!pauseState.upgrades.length) {
-    drawText(ctx, 'No upgrades purchased yet', leftColumnX, upgradesStartY, 24, COLORS.DIM);
+  drawText(ctx, 'ACTIVE UPGRADES', layout.panelX + 40, layout.upgradesLabelY, 13, COLORS.HUD);
+  if (!layout.visibleUpgrades.length) {
+    drawText(ctx, 'No upgrades purchased yet', layout.panelX + 40, layout.upgradesRowsY, 12, COLORS.DIM);
   } else {
-    let y = upgradesStartY;
-    pauseState.upgrades.forEach((row) => {
-      drawText(ctx, row, leftColumnX, y, upgradeFontSize, COLORS.HUD);
-      y += upgradeRowHeight;
+    let y = layout.upgradesRowsY;
+    layout.visibleUpgrades.forEach((row) => {
+      drawText(ctx, row, layout.panelX + 40, y, 12, COLORS.HUD);
+      y += 28;
     });
+    if (layout.hiddenUpgradeCount > 0) drawText(ctx, `...and ${layout.hiddenUpgradeCount} more`, layout.panelX + 40, y, 12, COLORS.DIM);
   }
 
-  drawDivider(ctx, 560, upgradesBottomY, 800);
-  drawText(ctx, 'SHIP STATS', leftColumnX, statsHeaderY, 30, COLORS.HUD);
-  let y = statsStartY;
+  drawDivider(ctx, layout.panelX + 30, layout.upgradesDividerY, layout.panelW - 60);
+  drawText(ctx, 'SHIP STATS', layout.panelX + 40, layout.statsLabelY, 13, COLORS.HUD);
+  let y = layout.statsRowsY;
   pauseState.stats.forEach((row) => {
-    drawText(ctx, row.left, leftColumnX, y, statsFontSize, COLORS.HUD);
-    drawText(ctx, row.right, rightColumnX, y, statsFontSize, COLORS.HUD);
-    y += statsRowHeight;
+    drawText(ctx, row.left, layout.panelX + 40, y, 12, COLORS.HUD);
+    drawText(ctx, row.right, layout.panelX + 440, y, 12, COLORS.HUD);
+    y += 26;
   });
 
-  drawDivider(ctx, 560, statsBottomY, 800);
-  const mobileButtons = isMobile();
-  const mobileResumeY = 780;
-  const mobileMainMenuY = 866;
-  pauseState.menu.forEach((item, index) => {
-    const selected = index === pauseState.selection;
-    const buttonY = mobileButtons ? (index === 0 ? mobileResumeY : mobileMainMenuY) : menuStartY + index * 48;
-    if (mobileButtons) {
-      ctx.save();
-      ctx.strokeStyle = index === 0 ? COLORS.HP : COLORS.WARNING;
-      ctx.lineWidth = ls(2);
-      ctx.fillStyle = selected ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.18)';
-      ctx.fillRect(lx(810), ly(buttonY), ls(300), ls(70));
-      ctx.strokeRect(lx(810), ly(buttonY), ls(300), ls(70));
-      ctx.restore();
-    } else if (selected) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.fillRect(lx(570), ly(menuStartY + index * 48), ls(780), ls(36));
-      ctx.restore();
-    }
-    drawText(ctx, item, 960, mobileButtons ? buttonY + 16 : menuStartY + 6 + index * 48, 30, selected ? COLORS.HIGHLIGHT : COLORS.HUD, 'center');
-  });
+  drawDivider(ctx, layout.panelX + 30, layout.buttonsDividerY, layout.panelW - 60);
 
   if (pauseState.confirming) {
-    drawText(ctx, 'Return to menu? Progress will be lost.', 960, mobileButtons ? 946 : menuStartY + 108, 24, COLORS.WARNING, 'center');
-    if (mobileButtons) {
-      ctx.save();
-      ctx.strokeStyle = COLORS.HP;
-      ctx.lineWidth = ls(2);
-      ctx.strokeRect(lx(820), ly(978), ls(130), ls(60));
-      ctx.strokeStyle = COLORS.WARNING;
-      ctx.strokeRect(lx(970), ly(978), ls(130), ls(60));
-      ctx.restore();
-      drawText(ctx, 'YES', 885, 992, 28, COLORS.HP, 'center');
-      drawText(ctx, 'NO', 1035, 992, 28, COLORS.WARNING, 'center');
-    } else {
-      drawText(ctx, 'Press Enter to confirm, ESC to cancel', 960, menuStartY + 138, 22, COLORS.DIM, 'center');
-    }
+    drawText(ctx, 'Return to menu? Progress will be lost.', LOGICAL_W / 2, layout.confirmTextY, 13, COLORS.DIM, 'center');
+    drawPauseButton(ctx, layout.confirmYes, 'YES', COLORS.WARNING, 'rgba(220,80,80,0.15)', pauseState.selection === 1);
+    drawPauseButton(ctx, layout.confirmNo, 'NO', COLORS.HP, 'rgba(60,200,120,0.15)', false);
+  }
+  else {
+    drawPauseButton(ctx, layout.resumeButton, 'RESUME', COLORS.HP, 'rgba(60,200,120,0.15)', pauseState.selection === 0);
+    drawPauseButton(ctx, layout.mainMenuButton, 'MAIN MENU', COLORS.WARNING, 'rgba(220,80,80,0.15)', pauseState.selection === 1);
   }
 
-  drawText(ctx, mobileButtons ? 'TAP TO SELECT' : 'ESC - Resume', 960, footerHintY, 24, COLORS.DIM, 'center');
+  drawText(ctx, isMobile() ? 'TAP TO SELECT' : 'ESC - Resume', LOGICAL_W / 2, layout.panelY + layout.panelH + 16, 12, COLORS.DIM, 'center');
+}
+
+export function getPauseLayout(pauseState) {
+  const maxPanelH = 980;
+  const panelW = 860;
+  const basePanelH = 640;
+  let visibleUpgradeCount = Math.min(4, pauseState.upgrades.length);
+  let hiddenUpgradeCount = Math.max(0, pauseState.upgrades.length - visibleUpgradeCount);
+  let upgradesRowsHeight = Math.max(80, visibleUpgradeCount * 28 + (hiddenUpgradeCount > 0 ? 28 : 0));
+  let panelH = Math.min(maxPanelH, Math.max(basePanelH, 70 + (40 + upgradesRowsHeight) + 144 + 15 + 95));
+
+  while (panelH > maxPanelH && visibleUpgradeCount > 0) {
+    visibleUpgradeCount -= 1;
+    hiddenUpgradeCount = pauseState.upgrades.length - visibleUpgradeCount;
+    upgradesRowsHeight = Math.max(80, visibleUpgradeCount * 28 + (hiddenUpgradeCount > 0 ? 28 : 0));
+    panelH = Math.min(maxPanelH, Math.max(basePanelH, 70 + (40 + upgradesRowsHeight) + 144 + 15 + 95));
+  }
+
+  const panelX = LOGICAL_W / 2 - panelW / 2;
+  const panelY = 540 - panelH / 2;
+  const upgradesLabelY = panelY + 92;
+  const upgradesRowsY = upgradesLabelY + 28;
+  const upgradesDividerY = panelY + 70 + 40 + upgradesRowsHeight + 10;
+  const statsLabelY = upgradesDividerY + 18;
+  const statsRowsY = statsLabelY + 28;
+  const buttonsDividerY = panelY + panelH - 95;
+  const buttonY = panelY + panelH - 80;
+
+  return {
+    panelX,
+    panelY,
+    panelW,
+    panelH,
+    upgradesLabelY,
+    upgradesRowsY,
+    upgradesDividerY,
+    statsLabelY,
+    statsRowsY,
+    buttonsDividerY,
+    resumeButton: { x: panelX + 170, y: buttonY, w: 240, h: 60 },
+    mainMenuButton: { x: panelX + 450, y: buttonY, w: 240, h: 60 },
+    confirmTextY: buttonY - 34,
+    confirmYes: { x: panelX + 190, y: buttonY + 3, w: 160, h: 55 },
+    confirmNo: { x: panelX + 510, y: buttonY + 3, w: 160, h: 55 },
+    visibleUpgrades: pauseState.upgrades.slice(0, visibleUpgradeCount),
+    hiddenUpgradeCount,
+  };
 }
 
 export function drawWaveCompleteOverlay(ctx, data, time) {
@@ -219,4 +211,30 @@ function drawDivider(ctx, x, y, w) {
   ctx.lineTo(lx(x + w), ly(y));
   ctx.stroke();
   ctx.restore();
+}
+
+function drawPauseButton(ctx, rect, label, borderColor, fillColor, selected = false) {
+  ctx.save();
+  ctx.fillStyle = selected ? 'rgba(255,255,255,0.08)' : fillColor;
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = ls(1.5);
+  roundedRectPath(ctx, lx(rect.x), ly(rect.y), ls(rect.w), ls(rect.h), ls(10));
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+  drawText(ctx, label, rect.x + rect.w / 2, rect.y + 18, 18, '#FFFFFF', 'center');
+}
+
+function roundedRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
