@@ -52,15 +52,21 @@ function resize() {
   const dpr = window.devicePixelRatio || 1;
   const scaleX = window.innerWidth / LOGICAL_W;
   const scaleY = window.innerHeight / LOGICAL_H;
+  const scale = Math.min(scaleX, scaleY);
+  const cssW = Math.floor(LOGICAL_W * scale);
+  const cssH = Math.floor(LOGICAL_H * scale);
 
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
-  canvas.style.width = `${window.innerWidth}px`;
-  canvas.style.height = `${window.innerHeight}px`;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  canvas.style.width = `${cssW}px`;
+  canvas.style.height = `${cssH}px`;
+  canvas.style.position = 'absolute';
+  canvas.style.left = `${Math.floor((window.innerWidth - cssW) / 2)}px`;
+  canvas.style.top = `${Math.floor((window.innerHeight - cssH) / 2)}px`;
 
-  window.SCALE = Math.min(scaleX, scaleY) * dpr;
-  window.OFFSET_X = (canvas.width - LOGICAL_W * window.SCALE) / 2;
-  window.OFFSET_Y = (canvas.height - LOGICAL_H * window.SCALE) / 2;
+  window.SCALE = scale * dpr;
+  window.OFFSET_X = 0;
+  window.OFFSET_Y = 0;
 }
 
 window.addEventListener('resize', resize);
