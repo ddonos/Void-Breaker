@@ -1,5 +1,6 @@
 import { COLORS, LOGICAL_W } from './settings.js';
 import { drawBar, drawText, flashAlpha, ls, lx, ly, strokeArc } from './renderer.js';
+import { isMobile } from './touchcontrols.js';
 
 export function drawHud(ctx, player, waveNumber, hiScore, stateTime, flashTimers, hudState = {}) {
   const { powerBadges = [], plasmaStatus = null, centerMessage = null, difficultyBadge = null } = hudState;
@@ -142,23 +143,47 @@ export function drawPauseOverlay(ctx, pauseState) {
   });
 
   drawDivider(ctx, 560, statsBottomY, 800);
+  const mobileButtons = isMobile();
+  const mobileResumeY = 780;
+  const mobileMainMenuY = 866;
   pauseState.menu.forEach((item, index) => {
     const selected = index === pauseState.selection;
-    if (selected) {
+    const buttonY = mobileButtons ? (index === 0 ? mobileResumeY : mobileMainMenuY) : menuStartY + index * 48;
+    if (mobileButtons) {
+      ctx.save();
+      ctx.strokeStyle = index === 0 ? COLORS.HP : COLORS.WARNING;
+      ctx.lineWidth = ls(2);
+      ctx.fillStyle = selected ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.18)';
+      ctx.fillRect(lx(810), ly(buttonY), ls(300), ls(70));
+      ctx.strokeRect(lx(810), ly(buttonY), ls(300), ls(70));
+      ctx.restore();
+    } else if (selected) {
       ctx.save();
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
       ctx.fillRect(lx(570), ly(menuStartY + index * 48), ls(780), ls(36));
       ctx.restore();
     }
-    drawText(ctx, item, 960, menuStartY + 6 + index * 48, 30, selected ? COLORS.HIGHLIGHT : COLORS.HUD, 'center');
+    drawText(ctx, item, 960, mobileButtons ? buttonY + 16 : menuStartY + 6 + index * 48, 30, selected ? COLORS.HIGHLIGHT : COLORS.HUD, 'center');
   });
 
   if (pauseState.confirming) {
-    drawText(ctx, 'Return to menu? Progress will be lost.', 960, menuStartY + 108, 24, COLORS.WARNING, 'center');
-    drawText(ctx, 'Press Enter to confirm, ESC to cancel', 960, menuStartY + 138, 22, COLORS.DIM, 'center');
+    drawText(ctx, 'Return to menu? Progress will be lost.', 960, mobileButtons ? 946 : menuStartY + 108, 24, COLORS.WARNING, 'center');
+    if (mobileButtons) {
+      ctx.save();
+      ctx.strokeStyle = COLORS.HP;
+      ctx.lineWidth = ls(2);
+      ctx.strokeRect(lx(820), ly(978), ls(130), ls(60));
+      ctx.strokeStyle = COLORS.WARNING;
+      ctx.strokeRect(lx(970), ly(978), ls(130), ls(60));
+      ctx.restore();
+      drawText(ctx, 'YES', 885, 992, 28, COLORS.HP, 'center');
+      drawText(ctx, 'NO', 1035, 992, 28, COLORS.WARNING, 'center');
+    } else {
+      drawText(ctx, 'Press Enter to confirm, ESC to cancel', 960, menuStartY + 138, 22, COLORS.DIM, 'center');
+    }
   }
 
-  drawText(ctx, 'ESC - Resume', 960, footerHintY, 24, COLORS.DIM, 'center');
+  drawText(ctx, mobileButtons ? 'TAP TO SELECT' : 'ESC - Resume', 960, footerHintY, 24, COLORS.DIM, 'center');
 }
 
 export function drawWaveCompleteOverlay(ctx, data, time) {

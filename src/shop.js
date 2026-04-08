@@ -1,6 +1,7 @@
 import { consumeKey } from './input.js';
 import { COLORS, LOGICAL_W } from './settings.js';
 import { drawPixelRect, drawText } from './renderer.js';
+import { isMobile, TapHandler } from './touchcontrols.js';
 
 export const UPGRADES = [
   {
@@ -106,28 +107,62 @@ export const UPGRADES = [
 export class ShopScreen {
   constructor() {
     this.selection = 0;
+    this.mobileFlashTimer = 0;
   }
 
   reset() {
     this.selection = 0;
+    this.mobileFlashTimer = 0;
   }
 
-  update(player, audioManager) {
+  attemptPurchase(player, audioManager, selection = this.selection) {
+    const upgrade = UPGRADES[selection];
+    const tier = player.upgrades[upgrade.id] || 0;
+    if (tier >= upgrade.maxTier) return null;
+    const cost = upgrade.costs[tier];
+    if (player.crystals < cost) return null;
+    player.crystals -= cost;
+    const nextTier = tier + 1;
+    player.upgrades[upgrade.id] = nextTier;
+    upgrade.apply(player, nextTier);
+    this.selection = selection;
+    this.mobileFlashTimer = 0.12;
+    audioManager.shopBuy();
+    return upgrade.id;
+  }
+
+  update(player, audioManager, tap = null) {
+    this.mobileFlashTimer = Math.max(0, this.mobileFlashTimer - 1 / 60);
     if (consumeKey('ArrowUp')) this.selection = (this.selection + UPGRADES.length - 1) % UPGRADES.length;
     if (consumeKey('ArrowDown')) this.selection = (this.selection + 1) % UPGRADES.length;
     if (consumeKey('Space')) return 'continue';
     if (consumeKey('Enter')) {
-      const upgrade = UPGRADES[this.selection];
-      const tier = player.upgrades[upgrade.id] || 0;
-      if (tier >= upgrade.maxTier) return null;
-      const cost = upgrade.costs[tier];
-      if (player.crystals < cost) return null;
-      player.crystals -= cost;
-      const nextTier = tier + 1;
-      player.upgrades[upgrade.id] = nextTier;
-      upgrade.apply(player, nextTier);
-      audioManager.shopBuy();
-      return upgrade.id;
+      return this.attemptPurchase(player, audioManager, this.selection);
+    }
+
+    if (tap) {
+      const rowStartY = 132;
+      const rowHeight = 86;
+      for (let i = 0; i < UPGRADES.length; i += 1) {
+        const rowY = rowStartY + i * rowHeight;
+        if (!TapHandler.hitRect(tap, 56, rowY - 6, 1808, 72)) continue;
+        if (this.selection === i) {
+          const result = this.attemptPurchase(player, audioManager, i);
+          if (result) return result;
+        } else {
+          this.selection = i;
+        }
+        return null;
+      }
+
+      if (this.selection >= 0) {
+        const buyBtnY = rowStartY + this.selection * rowHeight;
+        if (TapHandler.hitRect(tap, LOGICAL_W - 260, buyBtnY - 2, 180, 60)) {
+          return this.attemptPurchase(player, audioManager, this.selection);
+        }
+      }
+
+      if (TapHandler.hitRect(tap, LOGICAL_W / 2 - 120, 972, 240, 70)) return 'continue';
     }
     return null;
   }
@@ -162,9 +197,39 @@ export class ShopScreen {
       drawText(ctx, `${pips} ${upgrade.name}`, 88, y, 28, selected ? COLORS.HIGHLIGHT : COLORS.HUD);
       drawText(ctx, upgrade.description, 88, y + 34, 22, '#9088C7');
       drawText(ctx, maxed ? 'MAXED' : `${cost}`, 1832, y + 16, 32, maxed ? COLORS.DIM : (affordable ? COLORS.CRYSTAL : COLORS.DIM), 'right');
+      if (isMobile() && selected) {
+        ctx.save();
+        ctx.globalAlpha = this.mobileFlashTimer > 0 ? 0.22 : 1;
+        ctx.strokeStyle = affordable && !maxed ? COLORS.CRYSTAL : COLORS.DIM;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          window.OFFSET_X + (LOGICAL_W - 260) * window.SCALE,
+          window.OFFSET_Y + (y - 2) * window.SCALE,
+          180 * window.SCALE,
+          60 * window.SCALE,
+        );
+        ctx.restore();
+        drawText(ctx, maxed ? 'MAXED' : `BUY \u25C6${cost}`, LOGICAL_W - 170, y + 10, 22, maxed ? COLORS.DIM : (affordable ? COLORS.CRYSTAL : COLORS.DIM), 'center');
+      }
       y += 86;
     }
 
-    drawText(ctx, 'ENTER: Buy    SPACE: Continue', LOGICAL_W / 2, 1010, 28, COLORS.DIM, 'center');
+    if (isMobile()) {
+      ctx.save();
+      ctx.strokeStyle = COLORS.HUD;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        window.OFFSET_X + (LOGICAL_W / 2 - 120) * window.SCALE,
+        window.OFFSET_Y + 972 * window.SCALE,
+        240 * window.SCALE,
+        70 * window.SCALE,
+      );
+      ctx.restore();
+      drawText(ctx, 'TAP TO BUY · TAP CONTINUE WHEN DONE', LOGICAL_W / 2, 934, 22, COLORS.DIM, 'center');
+      drawText(ctx, '[ CONTINUE ]', LOGICAL_W / 2, 989, 28, COLORS.HIGHLIGHT, 'center');
+      drawText(ctx, 'TAP TO SELECT', LOGICAL_W / 2, 1048, 22, COLORS.DIM, 'center');
+    } else {
+      drawText(ctx, 'ENTER: Buy    SPACE: Continue', LOGICAL_W / 2, 1010, 28, COLORS.DIM, 'center');
+    }
   }
 }

@@ -23,6 +23,15 @@ export class TouchControls {
     };
 
     this.buttons = {
+      pause: {
+        x: 1860,
+        y: 55,
+        w: 60,
+        h: 60,
+        pressed: false,
+        touchId: null,
+        consumed: false,
+      },
       overdrive: {
         x: 1700,
         y: 780,
@@ -58,6 +67,10 @@ export class TouchControls {
     return dx * dx + dy * dy <= r * r;
   }
 
+  _inRect(px, py, x, y, w, h) {
+    return px >= x && px <= x + w && py >= y && py <= y + h;
+  }
+
   _bindEvents() {
     document.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
     document.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
@@ -76,7 +89,19 @@ export class TouchControls {
           continue;
         }
 
-        for (const button of Object.values(this.buttons)) {
+        const pauseButton = this.buttons.pause;
+        if (
+          !pauseButton.pressed &&
+          this._inRect(x, y, pauseButton.x - pauseButton.w / 2, pauseButton.y - pauseButton.h / 2, pauseButton.w, pauseButton.h)
+        ) {
+          pauseButton.pressed = true;
+          pauseButton.touchId = touch.identifier;
+          pauseButton.consumed = false;
+          continue;
+        }
+
+        for (const [name, button] of Object.entries(this.buttons)) {
+          if (name === 'pause') continue;
           if (button.pressed) continue;
           if (!this._inCircle(x, y, button.x, button.y, button.r)) continue;
           button.pressed = true;
@@ -163,6 +188,15 @@ export class TouchControls {
     return false;
   }
 
+  consumePause() {
+    const button = this.buttons.pause;
+    if (button.pressed && !button.consumed) {
+      button.consumed = true;
+      return true;
+    }
+    return false;
+  }
+
   consumePlasma() {
     const button = this.buttons.plasma;
     if (button.pressed && !button.consumed) {
@@ -174,6 +208,8 @@ export class TouchControls {
 
   draw(ctx, time, player) {
     if (!this.active) return;
+
+    this._drawPauseButton(ctx);
 
     ctx.save();
     ctx.beginPath();
@@ -220,6 +256,28 @@ export class TouchControls {
     });
   }
 
+  _drawPauseButton(ctx) {
+    const button = this.buttons.pause;
+    const x = lx(button.x - button.w / 2);
+    const y = ly(button.y - button.h / 2);
+    const w = ls(button.w);
+    const h = ls(button.h);
+    const radius = ls(12);
+
+    ctx.save();
+    roundedRect(ctx, x, y, w, h, radius);
+    ctx.fillStyle = button.pressed ? 'rgba(255,255,255,0.38)' : 'rgba(255,255,255,0.20)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.40)';
+    ctx.lineWidth = ls(2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x + w * 0.33, y + h * 0.24, w * 0.1, h * 0.52);
+    ctx.fillRect(x + w * 0.57, y + h * 0.24, w * 0.1, h * 0.52);
+    ctx.restore();
+  }
+
   _drawButton(ctx, time, button, config) {
     if (!config.purchased) return;
 
@@ -263,9 +321,72 @@ export class TouchControls {
   }
 }
 
+export class TapHandler {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.pendingTap = null;
+    this.suppressed = false;
+
+    canvas.addEventListener('touchend', (event) => {
+      if (!isMobile()) return;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      const dpr = window.devicePixelRatio || 1;
+      const x = (touch.clientX * dpr - window.OFFSET_X) / window.SCALE;
+      const y = (touch.clientY * dpr - window.OFFSET_Y) / window.SCALE;
+      this.pendingTap = { x, y };
+      event.preventDefault();
+    }, { passive: false });
+  }
+
+  consume() {
+    if (this.suppressed) {
+      this.suppressed = false;
+      this.pendingTap = null;
+      return null;
+    }
+    const tap = this.pendingTap;
+    this.pendingTap = null;
+    return tap;
+  }
+
+  suppressNextTap() {
+    this.suppressed = true;
+    this.pendingTap = null;
+  }
+
+  static hitRect(tap, x, y, w, h) {
+    if (!tap) return false;
+    return tap.x >= x && tap.x <= x + w && tap.y >= y && tap.y <= y + h;
+  }
+
+  static hitCircle(tap, cx, cy, r) {
+    if (!tap) return false;
+    const dx = tap.x - cx;
+    const dy = tap.y - cy;
+    return dx * dx + dy * dy <= r * r;
+  }
+}
+
+function roundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 export let touchControls = null;
+export let tapHandler = null;
 
 export function initTouchControls(canvas) {
   touchControls = new TouchControls(canvas);
+  tapHandler = new TapHandler(canvas);
   return touchControls;
 }

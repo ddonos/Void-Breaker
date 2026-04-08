@@ -1,6 +1,7 @@
 import { consumeKey } from './input.js';
 import { COLORS, DIFFICULTIES, INITIALS, LOGICAL_W } from './settings.js';
 import { drawText } from './renderer.js';
+import { isMobile, TapHandler } from './touchcontrols.js';
 
 export class InitialsEntry {
   constructor() {
@@ -12,18 +13,46 @@ export class InitialsEntry {
     this.index = 0;
   }
 
-  update() {
+  cycleUp(slot = this.index) {
+    const pos = INITIALS.indexOf(this.slots[slot]);
+    this.slots[slot] = INITIALS[(pos + 1) % INITIALS.length];
+  }
+
+  cycleDown(slot = this.index) {
+    const pos = INITIALS.indexOf(this.slots[slot]);
+    this.slots[slot] = INITIALS[(pos + INITIALS.length - 1) % INITIALS.length];
+  }
+
+  selectSlot(slot) {
+    this.index = Math.max(0, Math.min(this.slots.length - 1, slot));
+  }
+
+  confirm() {
+    this.index += 1;
+    return this.index >= this.slots.length;
+  }
+
+  update(tap = null) {
+    if (tap) {
+      const baseX = 760;
+      const slotSpacing = 168;
+      for (let i = 0; i < this.slots.length; i += 1) {
+        const letterX = baseX + i * slotSpacing;
+        if (TapHandler.hitRect(tap, letterX, 480, 70, 120)) this.selectSlot(i);
+        if (TapHandler.hitRect(tap, letterX + 8, 420, 40, 40)) this.cycleUp(i);
+        if (TapHandler.hitRect(tap, letterX + 8, 624, 40, 40)) this.cycleDown(i);
+      }
+      if (TapHandler.hitRect(tap, LOGICAL_W / 2 - 150, 786, 300, 70)) return true;
+    }
+
     if (consumeKey('ArrowUp')) {
-      const pos = INITIALS.indexOf(this.slots[this.index]);
-      this.slots[this.index] = INITIALS[(pos + 1) % INITIALS.length];
+      this.cycleUp();
     }
     if (consumeKey('ArrowDown')) {
-      const pos = INITIALS.indexOf(this.slots[this.index]);
-      this.slots[this.index] = INITIALS[(pos + INITIALS.length - 1) % INITIALS.length];
+      this.cycleDown();
     }
     if (consumeKey('ArrowRight') || consumeKey('Enter')) {
-      this.index += 1;
-      if (this.index >= this.slots.length) return true;
+      if (this.confirm()) return true;
     }
     if (consumeKey('ArrowLeft')) this.index = Math.max(0, this.index - 1);
     return false;
@@ -39,10 +68,29 @@ export class InitialsEntry {
     for (let i = 0; i < this.slots.length; i += 1) {
       const x = 760 + i * 168;
       const active = i === this.index;
+      if (isMobile()) {
+        drawText(ctx, '\u25B2', x + 24, 420, 36, COLORS.HUD, 'center');
+        drawText(ctx, '\u25BC', x + 24, 624, 36, COLORS.HUD, 'center');
+      }
       drawText(ctx, this.slots[i], x, 480, 112, active ? COLORS.HIGHLIGHT : COLORS.HUD);
       drawText(ctx, active ? '_' : ' ', x + 12, 600, 80, COLORS.CRYSTAL);
     }
-    drawText(ctx, 'UP/DOWN: Change  ENTER: Confirm', LOGICAL_W / 2, 824, 32, COLORS.DIM, 'center');
+    if (isMobile()) {
+      ctx.save();
+      ctx.strokeStyle = COLORS.CRYSTAL;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        window.OFFSET_X + (LOGICAL_W / 2 - 150) * window.SCALE,
+        window.OFFSET_Y + 786 * window.SCALE,
+        300 * window.SCALE,
+        70 * window.SCALE,
+      );
+      ctx.restore();
+      drawText(ctx, 'CONFIRM', LOGICAL_W / 2, 804, 32, COLORS.CRYSTAL, 'center');
+      drawText(ctx, 'TAP TO SELECT', LOGICAL_W / 2, 904, 24, COLORS.DIM, 'center');
+    } else {
+      drawText(ctx, 'UP/DOWN: Change  ENTER: Confirm', LOGICAL_W / 2, 824, 32, COLORS.DIM, 'center');
+    }
   }
 }
 
@@ -69,5 +117,18 @@ export function drawLeaderboard(ctx, hiScores, latestScoreSignature) {
     drawText(ctx, difficultyLabel, 1696, y, 24, difficulty.color, 'center');
   });
 
-  drawText(ctx, 'Press ENTER to play again / ESC for menu', LOGICAL_W / 2, 976, 32, COLORS.DIM, 'center');
+  if (isMobile()) {
+    ctx.save();
+    ctx.strokeStyle = COLORS.HP;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(window.OFFSET_X + 520 * window.SCALE, window.OFFSET_Y + 948 * window.SCALE, 280 * window.SCALE, 70 * window.SCALE);
+    ctx.strokeStyle = COLORS.HUD;
+    ctx.strokeRect(window.OFFSET_X + 1120 * window.SCALE, window.OFFSET_Y + 948 * window.SCALE, 280 * window.SCALE, 70 * window.SCALE);
+    ctx.restore();
+    drawText(ctx, 'PLAY AGAIN', 660, 966, 28, COLORS.HP, 'center');
+    drawText(ctx, 'MAIN MENU', 1260, 966, 28, COLORS.HUD, 'center');
+    drawText(ctx, 'TAP TO SELECT', LOGICAL_W / 2, 1034, 24, COLORS.DIM, 'center');
+  } else {
+    drawText(ctx, 'Press ENTER to play again / ESC for menu', LOGICAL_W / 2, 976, 32, COLORS.DIM, 'center');
+  }
 }

@@ -10,7 +10,7 @@ import { clearCanvas, drawBar, drawCircle, drawText, flashAlpha, ls, lx, ly } fr
 import { loadSave, qualifiesForBoard, submitScore, writeSave } from './save.js';
 import { ShopScreen, UPGRADES } from './shop.js';
 import { BOSS_WAVES, COLORS, currentDifficulty, DIFFICULTIES, GAME_STATES, LOGICAL_H, LOGICAL_W, POWERUP_CAP, setCurrentDifficulty, TITLE, SCORE_VALUES } from './settings.js';
-import { initTouchControls, touchControls } from './touchcontrols.js';
+import { initTouchControls, isMobile, tapHandler, TapHandler, touchControls } from './touchcontrols.js';
 import { explodeAt } from './utils.js';
 import { WaveManager } from './waves.js';
 
@@ -274,7 +274,16 @@ function spawnWaveClearBonus() {
 }
 
 function updatePlaying(dt) {
+  tapHandler?.consume();
   if (consumeKey('Escape')) {
+    pauseSelection = 0;
+    pauseConfirming = false;
+    pausedFromState = GAME_STATES.PLAYING;
+    setState(GAME_STATES.PAUSED);
+    return;
+  }
+  if (touchControls?.active && touchControls.consumePause()) {
+    tapHandler?.suppressNextTap();
     pauseSelection = 0;
     pauseConfirming = false;
     pausedFromState = GAME_STATES.PLAYING;
@@ -444,13 +453,36 @@ function updatePlaying(dt) {
 }
 
 function updateMenu() {
-  if (consumeKey('Enter')) {
+  const tap = tapHandler?.consume();
+  if (tap || consumeKey('Enter')) {
     difficultySelection = Math.max(0, difficultyOrder.indexOf(currentDifficulty));
     setState(GAME_STATES.DIFFICULTY);
   }
 }
 
 function updateDifficulty() {
+  const tap = tapHandler?.consume();
+  if (tap) {
+    const rows = difficultyOrder.map((key, index) => ({
+      id: key,
+      x: 360,
+      y: 290 + index * 162,
+      w: 1200,
+      h: 150,
+    }));
+    for (const row of rows) {
+      if (TapHandler.hitRect(tap, row.x, row.y, row.w, row.h)) {
+        setCurrentDifficulty(row.id);
+        hiScore = getBestScoreForDifficulty();
+        startNewRun();
+        return;
+      }
+    }
+    if (TapHandler.hitRect(tap, LOGICAL_W / 2 - 100, 950, 200, 60)) {
+      setState(GAME_STATES.MENU);
+      return;
+    }
+  }
   if (consumeKey('Escape')) {
     setState(GAME_STATES.MENU);
     return;
@@ -465,12 +497,14 @@ function updateDifficulty() {
 }
 
 function updateBossWarning(dt) {
+  tapHandler?.consume();
   updateStarfield(dt);
   bossWarningTimer -= dt;
   if (bossWarningTimer <= 0) beginWave(pendingBossWave);
 }
 
 function updateShop() {
+  const tap = tapHandler?.consume();
   if (consumeKey('Escape')) {
     pauseSelection = 0;
     pauseConfirming = false;
@@ -478,13 +512,26 @@ function updateShop() {
     setState(GAME_STATES.PAUSED);
     return;
   }
-  const result = shop.update(player, audioManager);
+  const result = shop.update(player, audioManager, tap);
   if (result === 'continue') advanceToNextWave();
 }
 
 function updatePaused() {
+  const tap = tapHandler?.consume();
+  const resumeRect = { x: LOGICAL_W / 2 - 150, y: 780, w: 300, h: 70 };
+  const mainMenuRect = { x: LOGICAL_W / 2 - 150, y: 866, w: 300, h: 70 };
   if (pauseConfirming) {
     if (consumeKey('Escape')) {
+      pauseConfirming = false;
+      return;
+    }
+    if (TapHandler.hitRect(tap, 820, 978, 130, 60)) {
+      player = null;
+      currentWave = 0;
+      setState(GAME_STATES.MENU);
+      return;
+    }
+    if (TapHandler.hitRect(tap, 970, 978, 130, 60)) {
       pauseConfirming = false;
       return;
     }
@@ -500,8 +547,16 @@ function updatePaused() {
     setState(pausedFromState);
     return;
   }
-    if (consumeKey('ArrowUp')) pauseSelection = (pauseSelection + 1) % 2 === 0 ? 0 : 1;
-    if (consumeKey('ArrowDown')) pauseSelection = (pauseSelection + 1) % 2;
+  if (TapHandler.hitRect(tap, resumeRect.x, resumeRect.y, resumeRect.w, resumeRect.h)) {
+    setState(pausedFromState);
+    return;
+  }
+  if (TapHandler.hitRect(tap, mainMenuRect.x, mainMenuRect.y, mainMenuRect.w, mainMenuRect.h)) {
+    pauseConfirming = true;
+    return;
+  }
+  if (consumeKey('ArrowUp')) pauseSelection = (pauseSelection + 1) % 2 === 0 ? 0 : 1;
+  if (consumeKey('ArrowDown')) pauseSelection = (pauseSelection + 1) % 2;
   if (consumeKey('Enter')) {
     if (pauseSelection === 0) setState(pausedFromState);
     else pauseConfirming = true;
@@ -509,6 +564,7 @@ function updatePaused() {
 }
 
 function updateWaveComplete(dt) {
+  tapHandler?.consume();
   if (stateTime >= 3) {
     if (canOpenShop()) {
       shop.reset();
@@ -520,8 +576,30 @@ function updateWaveComplete(dt) {
 }
 
 function updateGameOver(dt) {
+  const tap = tapHandler?.consume();
   gameOverDelay -= dt;
   if (gameOverDelay > 0) return;
+  if (TapHandler.hitRect(tap, LOGICAL_W / 2 - 160, 720, 320, 80)) {
+    if (qualifiesForBoard(Math.round(player.score))) {
+      initialsEntry.reset();
+      setState(GAME_STATES.ENTER_INITIALS);
+    } else {
+      difficultySelection = Math.max(0, difficultyOrder.indexOf(currentDifficulty));
+      setState(GAME_STATES.DIFFICULTY);
+    }
+    return;
+  }
+  if (TapHandler.hitRect(tap, LOGICAL_W / 2 - 160, 820, 320, 80)) {
+    if (qualifiesForBoard(Math.round(player.score))) {
+      initialsEntry.reset();
+      setState(GAME_STATES.ENTER_INITIALS);
+    } else {
+      player = null;
+      currentWave = 0;
+      setState(GAME_STATES.MENU);
+    }
+    return;
+  }
   if (consumeKey('KeyR')) {
     if (qualifiesForBoard(Math.round(player.score))) {
       initialsEntry.reset();
@@ -544,7 +622,8 @@ function updateGameOver(dt) {
 }
 
 function updateInitials() {
-  if (initialsEntry.update()) {
+  const tap = tapHandler?.consume();
+  if (initialsEntry.update(tap)) {
     const initials = initialsEntry.getInitials();
     const score = Math.round(player.score);
     submitScore(initials, score, finalWaveReached, currentDifficulty);
@@ -556,6 +635,18 @@ function updateInitials() {
 }
 
 function updateLeaderboard() {
+  const tap = tapHandler?.consume();
+  if (TapHandler.hitRect(tap, 520, 948, 280, 70)) {
+    difficultySelection = Math.max(0, difficultyOrder.indexOf(currentDifficulty));
+    setState(GAME_STATES.DIFFICULTY);
+    return;
+  }
+  if (TapHandler.hitRect(tap, 1120, 948, 280, 70)) {
+    player = null;
+    currentWave = 0;
+    setState(GAME_STATES.MENU);
+    return;
+  }
   if (consumeKey('Enter') || consumeKey('KeyR')) {
     difficultySelection = Math.max(0, difficultyOrder.indexOf(currentDifficulty));
     setState(GAME_STATES.DIFFICULTY);
@@ -610,10 +701,11 @@ function drawWorld() {
 function drawMenu() {
   drawText(ctx, TITLE, LOGICAL_W / 2, 264, 80, COLORS.PLAYER, 'center');
   drawText(ctx, 'Wave Survival - 30 Levels - Endless Mode', LOGICAL_W / 2, 384, 28, COLORS.DIM, 'center');
-  if (Math.floor(stateTime / 0.6) % 2 === 0) drawText(ctx, 'PRESS ENTER TO PLAY', LOGICAL_W / 2, 528, 36, COLORS.HUD, 'center');
+  if (Math.floor(stateTime / 0.6) % 2 === 0) drawText(ctx, isMobile() ? 'TAP TO PLAY' : 'PRESS ENTER TO PLAY', LOGICAL_W / 2, 528, 36, COLORS.HUD, 'center');
   const best = saveData.hiScores[0];
   if (best) drawText(ctx, `BEST ${Math.round(best.score)} by ${best.initials}`, LOGICAL_W / 2, 640, 28, COLORS.CRYSTAL, 'center');
-  drawText(ctx, 'WASD: Move  SPACE: Shoot  SHIFT: Overdrive', LOGICAL_W / 2, 880, 24, COLORS.DIM, 'center');
+  if (isMobile()) drawText(ctx, 'TAP TO SELECT', LOGICAL_W / 2, 1000, 24, COLORS.DIM, 'center');
+  else drawText(ctx, 'WASD: Move  SPACE: Shoot  SHIFT: Overdrive', LOGICAL_W / 2, 880, 24, COLORS.DIM, 'center');
 }
 
 function drawDifficultyScreen() {
@@ -644,7 +736,17 @@ function drawDifficultyScreen() {
     y += 162;
   });
 
-  drawText(ctx, 'ENTER - Confirm    ESC - Back to Menu', LOGICAL_W / 2, 1040, 28, COLORS.DIM, 'center');
+  if (isMobile()) {
+    ctx.save();
+    ctx.strokeStyle = COLORS.DIM;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(window.OFFSET_X + (LOGICAL_W / 2 - 100) * window.SCALE, window.OFFSET_Y + 950 * window.SCALE, 200 * window.SCALE, 60 * window.SCALE);
+    ctx.restore();
+    drawText(ctx, '[ BACK ]', LOGICAL_W / 2, 966, 28, COLORS.DIM, 'center');
+    drawText(ctx, 'TAP TO SELECT', LOGICAL_W / 2, 1040, 28, COLORS.DIM, 'center');
+  } else {
+    drawText(ctx, 'ENTER - Confirm    ESC - Back to Menu', LOGICAL_W / 2, 1040, 28, COLORS.DIM, 'center');
+  }
 }
 
 function drawPlaying() {
@@ -677,7 +779,20 @@ function drawGameOver() {
   drawText(ctx, `SCORE ${Math.round(player?.score || 0)}`, LOGICAL_W / 2, 512, 36, COLORS.HUD, 'center');
   drawText(ctx, `CRYSTALS ${player?.crystals || 0}`, LOGICAL_W / 2, 576, 36, COLORS.CRYSTAL, 'center');
   if (player && qualifiesForBoard(Math.round(player.score))) drawText(ctx, 'NEW HIGH SCORE!', LOGICAL_W / 2, 680, 40, COLORS.CRYSTAL, 'center');
-  drawText(ctx, 'R - Play Again    ESC - Main Menu', LOGICAL_W / 2, 912, 32, gameOverDelay <= 0 ? COLORS.DIM : '#555555', 'center');
+  if (isMobile()) {
+    ctx.save();
+    ctx.strokeStyle = COLORS.HP;
+    ctx.lineWidth = ls(2);
+    ctx.strokeRect(lx(LOGICAL_W / 2 - 160), ly(720), ls(320), ls(80));
+    ctx.strokeStyle = COLORS.HUD;
+    ctx.strokeRect(lx(LOGICAL_W / 2 - 160), ly(820), ls(320), ls(80));
+    ctx.restore();
+    drawText(ctx, 'PLAY AGAIN', LOGICAL_W / 2, 742, 32, gameOverDelay <= 0 ? COLORS.HP : '#555555', 'center');
+    drawText(ctx, 'MAIN MENU', LOGICAL_W / 2, 842, 32, gameOverDelay <= 0 ? COLORS.HUD : '#555555', 'center');
+    drawText(ctx, 'TAP TO SELECT', LOGICAL_W / 2, 944, 24, gameOverDelay <= 0 ? COLORS.DIM : '#555555', 'center');
+  } else {
+    drawText(ctx, 'R - Play Again    ESC - Main Menu', LOGICAL_W / 2, 912, 32, gameOverDelay <= 0 ? COLORS.DIM : '#555555', 'center');
+  }
 }
 
 function draw() {
