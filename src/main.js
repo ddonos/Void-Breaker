@@ -18,13 +18,21 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 initTouchControls(canvas);
 export { touchControls };
+let pauseMenuScreenTap = null;
+
 canvas.addEventListener('click', (event) => {
   if (!tapHandler) return;
+  pauseMenuScreenTap = { clientX: event.clientX, clientY: event.clientY };
   const dpr = window.devicePixelRatio || 1;
   const x = (event.clientX * dpr - window.OFFSET_X) / window.SCALE;
   const y = (event.clientY * dpr - window.OFFSET_Y) / window.SCALE;
   tapHandler.pendingTap = { x, y };
 });
+canvas.addEventListener('touchend', (event) => {
+  const touch = event.changedTouches[0];
+  if (!touch) return;
+  pauseMenuScreenTap = { clientX: touch.clientX, clientY: touch.clientY };
+}, { passive: true });
 document.addEventListener('touchstart', function (e) {
   const t = e.touches[0];
   if (!t) return;
@@ -558,6 +566,7 @@ function updateShop() {
 
 function updatePaused() {
   const tap = tapHandler?.consume();
+  const screenTap = consumePauseMenuScreenTap();
   if (tap && isPauseButtonTap(tap)) {
     setState(pausedFromState);
     return;
@@ -571,13 +580,13 @@ function updatePaused() {
       pauseConfirming = false;
       return;
     }
-    if (TapHandler.hitRect(tap, layout.confirmYes.x, layout.confirmYes.y, layout.confirmYes.w, layout.confirmYes.h)) {
+    if (hitPauseMenuRect(screenTap, layout.confirmYes)) {
       player = null;
       currentWave = 0;
       setState(GAME_STATES.MENU);
       return;
     }
-    if (TapHandler.hitRect(tap, layout.confirmNo.x, layout.confirmNo.y, layout.confirmNo.w, layout.confirmNo.h)) {
+    if (hitPauseMenuRect(screenTap, layout.confirmNo)) {
       pauseConfirming = false;
       return;
     }
@@ -593,11 +602,11 @@ function updatePaused() {
     setState(pausedFromState);
     return;
   }
-  if (TapHandler.hitRect(tap, resumeRect.x, resumeRect.y, resumeRect.w, resumeRect.h)) {
+  if (hitPauseMenuRect(screenTap, resumeRect)) {
     setState(pausedFromState);
     return;
   }
-  if (TapHandler.hitRect(tap, mainMenuRect.x, mainMenuRect.y, mainMenuRect.w, mainMenuRect.h)) {
+  if (hitPauseMenuRect(screenTap, mainMenuRect)) {
     pauseConfirming = true;
     return;
   }
@@ -1213,6 +1222,33 @@ function getPauseLayoutForInput(pauseState) {
     visibleUpgrades: pauseState.upgrades.slice(0, visibleUpgradeCount),
     hiddenUpgradeCount,
   };
+}
+
+function consumePauseMenuScreenTap() {
+  const tap = pauseMenuScreenTap;
+  pauseMenuScreenTap = null;
+  return tap;
+}
+
+function logicalToScreenRect(lxValue, lyValue, lwValue, lhValue) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = rect.width / LOGICAL_W;
+  const scaleY = rect.height / LOGICAL_H;
+  return {
+    left: rect.left + lxValue * scaleX,
+    top: rect.top + lyValue * scaleY,
+    right: rect.left + (lxValue + lwValue) * scaleX,
+    bottom: rect.top + (lyValue + lhValue) * scaleY,
+  };
+}
+
+function hitPauseMenuRect(screenTap, rect) {
+  if (!screenTap || !rect) return false;
+  const screenRect = logicalToScreenRect(rect.x, rect.y, rect.w, rect.h);
+  return screenTap.clientX >= screenRect.left
+    && screenTap.clientX <= screenRect.right
+    && screenTap.clientY >= screenRect.top
+    && screenTap.clientY <= screenRect.bottom;
 }
 
 function isPauseButtonTap(tap) {
